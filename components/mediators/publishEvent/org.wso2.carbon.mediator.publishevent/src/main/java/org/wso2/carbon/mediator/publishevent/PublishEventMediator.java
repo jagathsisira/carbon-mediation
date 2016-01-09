@@ -26,10 +26,10 @@ import org.apache.synapse.SynapseLog;
 import org.apache.synapse.core.axis2.Axis2MessageContext;
 import org.apache.synapse.mediators.AbstractMediator;
 import org.wso2.carbon.context.PrivilegedCarbonContext;
-import org.wso2.carbon.databridge.agent.thrift.exception.AgentException;
 import org.wso2.carbon.databridge.commons.Attribute;
 import org.wso2.carbon.databridge.commons.StreamDefinition;
 import org.wso2.carbon.databridge.commons.exception.MalformedStreamDefinitionException;
+import org.wso2.carbon.databridge.commons.utils.DataBridgeCommonsUtils;
 import org.wso2.carbon.event.sink.EventSink;
 import org.wso2.carbon.event.sink.EventSinkService;
 
@@ -119,36 +119,33 @@ public class PublishEventMediator extends AbstractMediator {
 		}
 
 		try {
-			Object[] metaData = new Object[metaProperties.size()];
-			for (int i = 0; i < metaProperties.size(); ++i) {
-				metaData[i] = metaProperties.get(i).extractPropertyValue(messageContext);
-			}
+            Object[] metaData = new Object[metaProperties.size()];
+            for (int i = 0; i < metaProperties.size(); ++i) {
+                metaData[i] = metaProperties.get(i).extractPropertyValue(messageContext);
+            }
 
-			Object[] correlationData = new Object[correlationProperties.size()];
-			for (int i = 0; i < correlationProperties.size(); ++i) {
-				correlationData[i] = correlationProperties.get(i).extractPropertyValue(messageContext);
-			}
+            Object[] correlationData = new Object[correlationProperties.size()];
+            for (int i = 0; i < correlationProperties.size(); ++i) {
+                correlationData[i] = correlationProperties.get(i).extractPropertyValue(messageContext);
+            }
 
-			Object[] payloadData = new Object[payloadProperties.size()];
-			for (int i = 0; i < payloadProperties.size(); ++i) {
-				payloadData[i] = payloadProperties.get(i).extractPropertyValue(messageContext);
-			}
+            Object[] payloadData = new Object[payloadProperties.size()];
+            for (int i = 0; i < payloadProperties.size(); ++i) {
+                payloadData[i] = payloadProperties.get(i).extractPropertyValue(messageContext);
+            }
 
-			Map<String, String> arbitraryData = new HashMap<String, String>();
-			for (int i = 0; i < arbitraryProperties.size(); ++i) {
-				Property arbitraryProperty = arbitraryProperties.get(i);
-				arbitraryData.put(arbitraryProperty.getKey(),
-				                  arbitraryProperty.extractPropertyValue(messageContext).toString());
-			}
+            Map<String, String> arbitraryData = new HashMap<String, String>();
+            for (int i = 0; i < arbitraryProperties.size(); ++i) {
+                Property arbitraryProperty = arbitraryProperties.get(i);
+                arbitraryData.put(arbitraryProperty.getKey(),
+                                  arbitraryProperty.extractPropertyValue(messageContext).toString());
+            }
 
-			eventSink.getDataPublisher()
-			         .publish(getStreamName(), getStreamVersion(), metaData, correlationData, payloadData,
-			                  arbitraryData);
+            eventSink.getDataPublisher()
+                    .publish(DataBridgeCommonsUtils.generateStreamId(getStreamName(), getStreamVersion()), metaData,
+                             correlationData, payloadData, arbitraryData);
 
-		} catch (AgentException e) {
-			String errorMsg = "Agent error occurred while sending the event: " + e.getLocalizedMessage();
-			log.error(errorMsg, e);
-		} catch (SynapseException e) {
+        } catch (SynapseException e) {
 			String errorMsg = "Error occurred while constructing the event: " + e.getLocalizedMessage();
 			log.error(errorMsg, e);
 		} catch (Exception e) {
@@ -192,7 +189,7 @@ public class PublishEventMediator extends AbstractMediator {
 			streamDef.setCorrelationData(generateAttributeList(getCorrelationProperties()));
 			streamDef.setMetaData(generateAttributeList(getMetaProperties()));
 			streamDef.setPayloadData(generateAttributeList(getPayloadProperties()));
-			eventSink.getDataPublisher().addStreamDefinition(streamDef);
+//			eventSink.getDataPublisher().addStreamDefinition(streamDef);
 		} catch (MalformedStreamDefinitionException e) {
 			String errorMsg = "Failed to set stream definition. Malformed Stream Definition: " + e.getMessage();
 			throw new SynapseException(errorMsg, e);

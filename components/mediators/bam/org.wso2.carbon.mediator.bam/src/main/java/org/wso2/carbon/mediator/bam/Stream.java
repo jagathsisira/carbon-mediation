@@ -22,13 +22,15 @@ import org.apache.commons.logging.LogFactory;
 import org.apache.synapse.MessageContext;
 import org.apache.synapse.core.axis2.Axis2MessageContext;
 import org.wso2.carbon.base.ServerConfiguration;
-import org.wso2.carbon.databridge.agent.thrift.AsyncDataPublisher;
-import org.wso2.carbon.databridge.agent.thrift.exception.AgentException;
-import org.wso2.carbon.databridge.agent.thrift.lb.DataPublisherHolder;
-import org.wso2.carbon.databridge.agent.thrift.lb.LoadBalancingDataPublisher;
-import org.wso2.carbon.databridge.agent.thrift.lb.ReceiverGroup;
-import org.wso2.carbon.databridge.agent.thrift.util.DataPublisherUtil;
+import org.wso2.carbon.databridge.agent.DataPublisher;
+import org.wso2.carbon.databridge.agent.exception.DataEndpointAgentConfigurationException;
+import org.wso2.carbon.databridge.agent.exception.DataEndpointAuthenticationException;
+import org.wso2.carbon.databridge.agent.exception.DataEndpointConfigurationException;
+import org.wso2.carbon.databridge.agent.exception.DataEndpointException;
+import org.wso2.carbon.databridge.agent.util.DataPublisherUtil;
 import org.wso2.carbon.databridge.commons.StreamDefinition;
+import org.wso2.carbon.databridge.commons.exception.TransportException;
+import org.wso2.carbon.databridge.commons.utils.DataBridgeCommonsUtils;
 import org.wso2.carbon.mediator.bam.config.BamMediatorException;
 import org.wso2.carbon.mediator.bam.config.BamServerConfig;
 import org.wso2.carbon.mediator.bam.config.stream.StreamConfiguration;
@@ -47,9 +49,9 @@ public class Stream {
     public static final String CLOUD_DEPLOYMENT_PROP = "IsCloudDeployment";
     public static final String SERVER_CONFIG_BAM_URL = "BamServerURL";
     public static final String DEFAULT_BAM_SERVER_URL = "tcp://127.0.0.1:7611";
-    private AsyncDataPublisher asyncDataPublisher;
+    private DataPublisher asyncDataPublisher;
     private StreamDefinitionBuilder streamDefinitionBuilder;
-    private LoadBalancingDataPublisher loadBalancingDataPublisher;
+    private DataPublisher loadBalancingDataPublisher;
     private boolean isPublisherCreated;
     private BamServerConfig bamServerConfig;
     private StreamConfiguration streamConfiguration;
@@ -86,7 +88,7 @@ public class Stream {
         try {
             if (!stream.isPublisherCreated) {
                 stream.createDataPublisher();
-                stream.setStreamDefinitionToDataPublisher();
+//                stream.setStreamDefinitionToDataPublisher();
                 stream.isPublisherCreated = true;
             }
         } catch (BamMediatorException e) {
@@ -110,14 +112,24 @@ public class Stream {
                         this.bamServerConfig.getUsername(),
                         this.bamServerConfig.getPassword());
             } else {
-                if (this.bamServerConfig.isSecure()) {
-                    asyncDataPublisher = new AsyncDataPublisher("ssl://" + this.bamServerConfig.getIp() + ":" + this.bamServerConfig.getAuthenticationPort(),
-                            "ssl://" + this.bamServerConfig.getIp() + ":" + this.bamServerConfig.getAuthenticationPort(),
-                            this.bamServerConfig.getUsername(), this.bamServerConfig.getPassword());
-                } else {
-                    asyncDataPublisher = new AsyncDataPublisher("ssl://" + this.bamServerConfig.getIp() + ":" + this.bamServerConfig.getAuthenticationPort(),
-                            "tcp://" + this.bamServerConfig.getIp() + ":" + this.bamServerConfig.getReceiverPort(),
-                            this.bamServerConfig.getUsername(), this.bamServerConfig.getPassword());
+                try {
+                    if (this.bamServerConfig.isSecure()) {
+                        asyncDataPublisher = new DataPublisher("Thrift","ssl://" + this.bamServerConfig.getIp() + ":" +
+                                                                        this.bamServerConfig.getAuthenticationPort(),
+                                "ssl://" + this.bamServerConfig.getIp() + ":" + this.bamServerConfig.getAuthenticationPort(),
+                                this.bamServerConfig.getUsername(), this.bamServerConfig.getPassword());
+                    } else {
+                        asyncDataPublisher = new DataPublisher("Thrift","ssl://" + this.bamServerConfig.getIp() + ":" +
+                                                                        this.bamServerConfig.getAuthenticationPort(),
+                                "tcp://" + this.bamServerConfig.getIp() + ":" + this.bamServerConfig.getReceiverPort(),
+                                this.bamServerConfig.getUsername(), this.bamServerConfig.getPassword());
+                    }
+                } catch (DataEndpointAgentConfigurationException | DataEndpointException |
+                        DataEndpointConfigurationException | DataEndpointAuthenticationException | TransportException
+                        e) {
+                    String errorMsg = "Exception occurred while creating the AsyncDataPublisher " + e.getMessage();
+                    log.error(errorMsg, e);
+                    throw new BamMediatorException(errorMsg, e);
                 }
             }
         }
@@ -126,33 +138,40 @@ public class Stream {
     }
 
     private void createLoadBalancingDataPublisher(String urlSet, String username, String password) throws BamMediatorException {
-        ArrayList<ReceiverGroup> allReceiverGroups = new ArrayList<ReceiverGroup>();
-        ArrayList<String> receiverGroupUrls = DataPublisherUtil.getReceiverGroups(urlSet);
-
-        for (String aReceiverGroupURL : receiverGroupUrls) {
-            ArrayList<DataPublisherHolder> dataPublisherHolders = new ArrayList<DataPublisherHolder>();
-            String[] failOverUrls = aReceiverGroupURL.split("\\|");
-            String[] lbURLs = aReceiverGroupURL.split(",");
-            if (failOverUrls == null || failOverUrls.length == 1) {
-                for (String aUrl : lbURLs) {
-                    DataPublisherHolder aNode = new DataPublisherHolder(null, aUrl.trim(), username, password);
-                    dataPublisherHolders.add(aNode);
-                }
-                ReceiverGroup group = new ReceiverGroup(dataPublisherHolders);
-                allReceiverGroups.add(group);
-            } else if (lbURLs != null && lbURLs.length != 1) {
-                throw new BamMediatorException("You can either have fali over URLs or load balancing URLS in one receiver group",
-                        new Exception("You can either have fali over URLs or load balancing URLS in one receiver group"));
-            } else {
-                for (String aUrl : failOverUrls) {
-                    DataPublisherHolder aNode = new DataPublisherHolder(null, aUrl.trim(), username, password);
-                    dataPublisherHolders.add(aNode);
-                }
-                ReceiverGroup group = new ReceiverGroup(dataPublisherHolders, true);
-                allReceiverGroups.add(group);
-            }
+//        ArrayList<ReceiverGroup> allReceiverGroups = new ArrayList<ReceiverGroup>();
+//        ArrayList<String> receiverGroupUrls = DataPublisherUtil.getReceiverGroups(urlSet);
+//
+//        for (String aReceiverGroupURL : receiverGroupUrls) {
+//            ArrayList<DataPublisherHolder> dataPublisherHolders = new ArrayList<DataPublisherHolder>();
+//            String[] failOverUrls = aReceiverGroupURL.split("\\|");
+//            String[] lbURLs = aReceiverGroupURL.split(",");
+//            if (failOverUrls == null || failOverUrls.length == 1) {
+//                for (String aUrl : lbURLs) {
+//                    DataPublisherHolder aNode = new DataPublisherHolder(null, aUrl.trim(), username, password);
+//                    dataPublisherHolders.add(aNode);
+//                }
+//                ReceiverGroup group = new ReceiverGroup(dataPublisherHolders);
+//                allReceiverGroups.add(group);
+//            } else if (lbURLs != null && lbURLs.length != 1) {
+//                throw new BamMediatorException("You can either have fali over URLs or load balancing URLS in one receiver group",
+//                        new Exception("You can either have fali over URLs or load balancing URLS in one receiver group"));
+//            } else {
+//                for (String aUrl : failOverUrls) {
+//                    DataPublisherHolder aNode = new DataPublisherHolder(null, aUrl.trim(), username, password);
+//                    dataPublisherHolders.add(aNode);
+//                }
+//                ReceiverGroup group = new ReceiverGroup(dataPublisherHolders, true);
+//                allReceiverGroups.add(group);
+//            }
+//        }
+        try {
+            this.loadBalancingDataPublisher = new DataPublisher(urlSet, username, password);
+        } catch (DataEndpointAgentConfigurationException | DataEndpointException | DataEndpointConfigurationException
+                | DataEndpointAuthenticationException | TransportException e) {
+            String errorMsg = "Exception occurred while creating the LoadBalancingDataPublisher " + e.getMessage();
+            log.error(errorMsg, e);
+            throw new BamMediatorException(errorMsg, e);
         }
-        this.loadBalancingDataPublisher = new LoadBalancingDataPublisher(allReceiverGroups);
     }
 
     private String getServerConfigBAMServerURL() {
@@ -169,52 +188,42 @@ public class Stream {
         return null != cloudDeploy && Boolean.parseBoolean(cloudDeploy[cloudDeploy.length - 1]);
     }
 
-    private void setStreamDefinitionToDataPublisher() throws BamMediatorException {
-        try {
-            StreamDefinition streamDef = this.streamDefinitionBuilder.buildStreamDefinition(this.streamConfiguration);
-            if (this.bamServerConfig.isLoadbalanced()) {
-                loadBalancingDataPublisher.addStreamDefinition(streamDef);
-            } else {
-                asyncDataPublisher.addStreamDefinition(streamDef);
-            }
-        } catch (BamMediatorException e) {
-            String errorMsg = "Error while creating the Asynchronous/LoadBalancing Data Publisher" +
-                    "or while creating the Stream Definition. " + e.getMessage();
-            log.error(errorMsg, e);
-            throw new BamMediatorException(errorMsg, e);
-        }
-    }
+//    private void setStreamDefinitionToDataPublisher() throws BamMediatorException {
+//        try {
+//            StreamDefinition streamDef = this.streamDefinitionBuilder.buildStreamDefinition(this.streamConfiguration);
+//            if (this.bamServerConfig.isLoadbalanced()) {
+//                loadBalancingDataPublisher.addStreamDefinition(streamDef);
+//            } else {
+//                asyncDataPublisher.addStreamDefinition(streamDef);
+//            }
+//        } catch (BamMediatorException e) {
+//            String errorMsg = "Error while creating the Asynchronous/LoadBalancing Data Publisher" +
+//                    "or while creating the Stream Definition. " + e.getMessage();
+//            log.error(errorMsg, e);
+//            throw new BamMediatorException(errorMsg, e);
+//        }
+//    }
 
     private void publishEvent(MessageContext messageContext) throws BamMediatorException {
         org.apache.axis2.context.MessageContext msgCtx = ((Axis2MessageContext) messageContext).getAxis2MessageContext();
         AxisConfiguration axisConfiguration = msgCtx.getConfigurationContext().getAxisConfiguration();
-        try {
-            Object[] metaData = this.metaDataBuilder.createMetadata(messageContext, axisConfiguration);
-            Object[] correlationData = this.correlationDataBuilder.createCorrelationData(messageContext);
-            Object[] payloadData = this.payloadDataBuilder.createPayloadData(messageContext, msgCtx,
-                    this.streamConfiguration);
+        Object[] metaData = this.metaDataBuilder.createMetadata(messageContext, axisConfiguration);
+        Object[] correlationData = this.correlationDataBuilder.createCorrelationData(messageContext);
+        Object[] payloadData = this.payloadDataBuilder.createPayloadData(messageContext, msgCtx,
+                                                                         this.streamConfiguration);
 
-            if (this.bamServerConfig.isLoadbalanced()) {
-                loadBalancingDataPublisher.publish(this.streamConfiguration.getName(),
-                        this.streamConfiguration.getVersion(), metaData,
-                        correlationData, payloadData);
-            } else {
-                if (!asyncDataPublisher.canPublish()) {
-                    asyncDataPublisher.reconnect();
-                }
-                asyncDataPublisher.publish(this.streamConfiguration.getName(),
-                        this.streamConfiguration.getVersion(),
-                        metaData, correlationData, payloadData);
-            }
-
-        } catch (AgentException e) {
-            String errorMsg = "Agent error occurred while sending the event. " + e.getMessage();
-            log.error(errorMsg, e);
-            throw new BamMediatorException(errorMsg, e);
-        } catch (Exception e) {
-            String errorMsg = "Error occurred while sending the event. " + e.getMessage();
-            log.error(errorMsg, e);
-            throw new BamMediatorException(errorMsg, e);
+        if (this.bamServerConfig.isLoadbalanced()) {
+            loadBalancingDataPublisher.publish(DataBridgeCommonsUtils.generateStreamId(this.streamConfiguration
+                                                                                               .getName(), this
+                                                       .streamConfiguration.getVersion()), metaData, correlationData,
+                                               payloadData);
+        } else {
+//                if (!asyncDataPublisher.canPublish()) {
+//                    asyncDataPublisher.reconnect();
+//                }
+            asyncDataPublisher.publish(DataBridgeCommonsUtils.generateStreamId(this.streamConfiguration.getName(),
+                                                                               this.streamConfiguration.getVersion()),
+                                       metaData, correlationData, payloadData);
         }
     }
 

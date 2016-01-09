@@ -24,14 +24,14 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.wso2.carbon.core.util.CryptoException;
 import org.wso2.carbon.core.util.CryptoUtil;
-import org.wso2.carbon.databridge.agent.thrift.lb.DataPublisherHolder;
-import org.wso2.carbon.databridge.agent.thrift.lb.LoadBalancingDataPublisher;
-import org.wso2.carbon.databridge.agent.thrift.lb.ReceiverGroup;
-import org.wso2.carbon.databridge.agent.thrift.util.DataPublisherUtil;
+import org.wso2.carbon.databridge.agent.DataPublisher;
+import org.wso2.carbon.databridge.agent.exception.DataEndpointAgentConfigurationException;
+import org.wso2.carbon.databridge.agent.exception.DataEndpointAuthenticationException;
+import org.wso2.carbon.databridge.agent.exception.DataEndpointConfigurationException;
+import org.wso2.carbon.databridge.agent.exception.DataEndpointException;
+import org.wso2.carbon.databridge.commons.exception.TransportException;
 
 import java.nio.charset.Charset;
-import java.util.ArrayList;
-import java.util.List;
 
 public class EventSink {
 	private static final Log log = LogFactory.getLog(EventSink.class);
@@ -40,7 +40,7 @@ public class EventSink {
 	private String authenticationUrlSet;
 	private String username;
 	private String password;
-	private LoadBalancingDataPublisher dataPublisher;
+	private DataPublisher dataPublisher;
 
 	public EventSink(){};
 
@@ -93,11 +93,11 @@ public class EventSink {
 		this.authenticationUrlSet = urlSet;
 	}
 
-	public LoadBalancingDataPublisher getDataPublisher() {
+	public DataPublisher getDataPublisher() {
 		return dataPublisher;
 	}
 
-	public void setDataPublisher(LoadBalancingDataPublisher loadBalancingDataPublisher) {
+	public void setDataPublisher(DataPublisher loadBalancingDataPublisher) {
 		this.dataPublisher = loadBalancingDataPublisher;
 	}
 
@@ -147,59 +147,68 @@ public class EventSink {
 		}
 		eventSink.setName(name);
 
-		ArrayList<ReceiverGroup> allReceiverGroups = new ArrayList<ReceiverGroup>();
-		List<String> receiverUrlGroups = DataPublisherUtil.getReceiverGroups(eventSink.getReceiverUrlSet());
+//		ArrayList<ReceiverGroup> allReceiverGroups = new ArrayList<ReceiverGroup>();
+//		List<String> receiverUrlGroups = DataPublisherUtil.getReceiverGroups(eventSink.getReceiverUrlSet());
+//
+//		ArrayList<String> authenticatorUrlGroups = null;
+//		if (eventSink.getAuthenticationUrlSet() != null && eventSink.getAuthenticationUrlSet().length() > 0) {
+//			authenticatorUrlGroups = DataPublisherUtil.getReceiverGroups(eventSink.getAuthenticationUrlSet());
+//			if (authenticatorUrlGroups.size() != receiverUrlGroups.size()) {
+//				throw new EventSinkException("Receiver URL group count is not equal to Authenticator URL group count." +
+//				                             " Receiver URL groups: " + eventSink.getReceiverUrlSet() +
+//				                             " & Authenticator URL " +
+//				                             " groups: " + eventSink.getAuthenticationUrlSet());
+//			}
+//		}
+//
+//		for (int i = 0; i < receiverUrlGroups.size(); ++i) {
+//			String receiverGroup = receiverUrlGroups.get(i);
+//			String[] receiverUrls = receiverGroup.split(",");
+//			String[] authenticatorUrls = new String[receiverUrls.length];
+//
+//			if (authenticatorUrlGroups != null) {
+//				String authenticatorGroup = authenticatorUrlGroups.get(i);
+//				authenticatorUrls = authenticatorGroup.split(",");
+//				if (receiverUrls.length != authenticatorUrls.length) {
+//					throw new EventSinkException("Receiver URL count is not equal to Authenticator URL count. Receiver"
+//					                             + " URL group: " + receiverGroup + ", authenticator URL group: " +
+//					                             authenticatorGroup);
+//				}
+//			}
+//
+//			ArrayList<DataPublisherHolder> dataPublisherHolders = new ArrayList<DataPublisherHolder>();
+//			for (int j = 0; j < receiverUrls.length; ++j) {
+//				DataPublisherHolder holder = new DataPublisherHolder(authenticatorUrls[j], receiverUrls[j],
+//				                                                     eventSink.getUsername(), eventSink.getPassword());
+//				dataPublisherHolders.add(holder);
+//			}
+//			ReceiverGroup group = new ReceiverGroup(dataPublisherHolders);
+//			allReceiverGroups.add(group);
+//		}
 
-		ArrayList<String> authenticatorUrlGroups = null;
-		if (eventSink.getAuthenticationUrlSet() != null && eventSink.getAuthenticationUrlSet().length() > 0) {
-			authenticatorUrlGroups = DataPublisherUtil.getReceiverGroups(eventSink.getAuthenticationUrlSet());
-			if (authenticatorUrlGroups.size() != receiverUrlGroups.size()) {
-				throw new EventSinkException("Receiver URL group count is not equal to Authenticator URL group count." +
-				                             " Receiver URL groups: " + eventSink.getReceiverUrlSet() +
-				                             " & Authenticator URL " +
-				                             " groups: " + eventSink.getAuthenticationUrlSet());
-			}
-		}
+        try {
+            eventSink.setDataPublisher(new DataPublisher(eventSink.getReceiverUrlSet(), eventSink.getUsername(),
+                                                         eventSink.getPassword()));
+        } catch (DataEndpointAgentConfigurationException | DataEndpointException | DataEndpointConfigurationException
+                | DataEndpointAuthenticationException | TransportException e) {
+            throw new EventSinkException("Error creating DataPublisher for the event sink ", e);
+        }
 
-		for (int i = 0; i < receiverUrlGroups.size(); ++i) {
-			String receiverGroup = receiverUrlGroups.get(i);
-			String[] receiverUrls = receiverGroup.split(",");
-			String[] authenticatorUrls = new String[receiverUrls.length];
-
-			if (authenticatorUrlGroups != null) {
-				String authenticatorGroup = authenticatorUrlGroups.get(i);
-				authenticatorUrls = authenticatorGroup.split(",");
-				if (receiverUrls.length != authenticatorUrls.length) {
-					throw new EventSinkException("Receiver URL count is not equal to Authenticator URL count. Receiver"
-					                             + " URL group: " + receiverGroup + ", authenticator URL group: " +
-					                             authenticatorGroup);
-				}
-			}
-
-			ArrayList<DataPublisherHolder> dataPublisherHolders = new ArrayList<DataPublisherHolder>();
-			for (int j = 0; j < receiverUrls.length; ++j) {
-				DataPublisherHolder holder = new DataPublisherHolder(authenticatorUrls[j], receiverUrls[j],
-				                                                     eventSink.getUsername(), eventSink.getPassword());
-				dataPublisherHolders.add(holder);
-			}
-			ReceiverGroup group = new ReceiverGroup(dataPublisherHolders);
-			allReceiverGroups.add(group);
-		}
-
-		eventSink.setDataPublisher(new LoadBalancingDataPublisher(allReceiverGroups));
-
-		return eventSink;
+        return eventSink;
 	}
 
 	/**
 	 * Stop DataPublisher before removing the Event Sink
-	 *
-	 * @param eventSink name of the Event Sink which is going to be removed
-	 */
-	public static void stopDataPublisher(EventSink eventSink) {
-		if(eventSink != null && eventSink.getDataPublisher() != null) {
-			eventSink.getDataPublisher().stop();
-		}
-
-	}
+     *
+     * @param eventSink name of the Event Sink which is going to be removed
+     */
+    public static void stopDataPublisher(EventSink eventSink) throws EventSinkException {
+        if (eventSink != null && eventSink.getDataPublisher() != null) {
+            try {
+                eventSink.getDataPublisher().shutdownWithAgent();
+            } catch (DataEndpointException e) {
+                throw new EventSinkException("Error shutting down the publisher for the event sink ", e);
+            }
+        }
+    }
 }
