@@ -2328,7 +2328,14 @@
         <carbon.rule.imp.pkg.version>[4.4.0, 4.5.0)</carbon.rule.imp.pkg.version>
 
         <!-- Synapse Version -->
-        <synapse.version>2.1.7-wso2v3-SNAPSHOT</synapse.version>
+        <synapse.version>2.1.7-wso2v3</synapse.version>
+
+        <carbon.identity.entitlement.proxy.version>5.1.1</carbon.identity.entitlement.proxy.version>
+        <carbon.identity.entitlement.proxy.imp.pkg.version>[5.0.0, 6.0.0)</carbon.identity.entitlement.proxy.imp.pkg.version>
+
+        <carbon.identity.oauth.version>5.1.1</carbon.identity.oauth.version>
+        <carbon.identity.oauth.imp.pkg.version>[5.0.0, 6.0.0)</carbon.identity.oauth.imp.pkg.version>
+
 
         <carbon.identity.entitlement.proxy.version>5.1.1</carbon.identity.entitlement.proxy.version>
         <carbon.identity.entitlement.proxy.imp.pkg.version>[5.0.0, 6.0.0)</carbon.identity.entitlement.proxy.imp.pkg.version>
@@ -2363,7 +2370,7 @@
         <httpcore.wso2.version>4.3.3.wso2v1</httpcore.wso2.version>
         <httpcore-nio.wso2.version>4.3.3.wso2v4</httpcore-nio.wso2.version>
         <httpclient.wso2.version>4.3.2.wso2v1</httpclient.wso2.version>
-        <org.apache.commons.wso2.version>2.0-wso2v15-SNAPSHOT</org.apache.commons.wso2.version>
+        <org.apache.commons.wso2.version>2.0-wso2v14</org.apache.commons.wso2.version>
         <httpcore.nio.version>4.3.3</httpcore.nio.version>
         <httpcore.version>4.3.3</httpcore.version>
         <httpclient.version>4.3.2</httpclient.version>
